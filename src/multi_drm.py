@@ -131,6 +131,7 @@ class MULTI_DRM_Gradient(BaseModel):
             
     def _create_variables(self):
             """Create variables for the model."""
+
     
             with tf.name_scope("variable"):
                 if self.reg_type == 'L2':
@@ -139,6 +140,7 @@ class MULTI_DRM_Gradient(BaseModel):
                     regularizer = tf.contrib.layers.l1_regularizer(scale=self.reg_scale)
     
                 self.dim_lst = [self.dim_inputs] + self.dim_hidden_lst + [self.number_structures]
+                print(self.dim_lst)
     
                 self.W_lst = []
                 self.b_lst = []
@@ -155,8 +157,8 @@ class MULTI_DRM_Gradient(BaseModel):
         
     def _create_prediction(self):
             """Create model predictions."""
-    
-    
+            epsilon = 1e-3
+
             with tf.name_scope("prediction"):
                 h = self.X
                 for i in range(len(self.dim_lst) - 1):
@@ -168,8 +170,20 @@ class MULTI_DRM_Gradient(BaseModel):
     
                     # output layer
                     else:
+                        
                         h = tf.matmul(h, self.W_lst[i])
-                     #   h = tf.nn.softmax(tf.nn.tanh(h))
+                     #   batch_mean, batch_var = tf.nn.moments(h,[0])
+                     #    scale = tf.Variable(tf.ones([self.dim_lst[-1]]))
+                    #    beta = tf.Variable(tf.zeros([self.dim_lst[-1]]]))
+                    #    BN = tf.nn.batch_normalization(h,
+                     #                                   batch_mean,
+                     #                                   batch_var,
+                     #                                   beta,
+                     #                                   scale,
+                       #                                 epsilon)
+                    #    h = tf.nn.softmax(BN)
+                        
+                     #   h = tf.nn.softmax(20*tf.nn.tanh(h))
                         h = tf.nn.softmax(20*h)
                 self.score = h
  
@@ -177,7 +191,9 @@ class MULTI_DRM_Gradient(BaseModel):
         """Create loss based on true label and predictions."""
 
         with tf.name_scope("loss"):
-                        
+            
+           # gini=(tf.nn.l2_loss(    self.score))/100000
+            gini = tf.losses.softmax_cross_entropy(self.score, 0*self.score)
             
             promo_prob=tf.reduce_sum(tf.multiply(self.score, self.cohort_weight),
                                           axis=1)
@@ -216,7 +232,7 @@ class MULTI_DRM_Gradient(BaseModel):
           #   reg_loss = tf.norm( weights,ord=1)
 
             # final loss
-            self.loss = self.objective +reg_loss
+            self.loss = self.objective +reg_loss+.1*gini
 
     def _create_optimizer(self):
         """Create optimizer to optimize loss."""
@@ -386,7 +402,6 @@ class MULTI_DRM_Gradient(BaseModel):
 
             # print every now and then
             if ((e + 1) % self.print_every == 0 or e == 0) and self.verbose:
-                print("l;oss"+ str(loss))
                 print("Epoch {0}: with training loss = {1}".format(e + 1, loss[0]))
 
         final_loss = loss_lst[-1]
